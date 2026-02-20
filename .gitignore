@@ -3,3 +3,5 @@ node_modules
 compiled_prompt.md
 coverage
 out
+benchmark/tasks.jsonl
+benchmark/runs.jsonl

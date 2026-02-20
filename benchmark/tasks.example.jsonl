@@ -1,0 +1,2 @@
+{"task_id":"ADA-001","repo_path":"/Users/potato-bot/clawd/out/oss-ada/ada","issue_text":"Ubuntu CI에서 clang job이 간헐 실패","acceptance":["원인 특정","최소 수정안 제시","근거 파일 2개 이상"],"type":"ci","difficulty":3,"timebox_min":30}
+{"task_id":"ADA-002","repo_path":"/Users/potato-bot/clawd/out/oss-ada/ada","issue_text":"host parsing 성능 병목 진단","acceptance":["병목 3개","각 근거 파일/라인","우선순위 제시"],"type":"perf","difficulty":4,"timebox_min":45}
