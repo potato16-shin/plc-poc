@@ -1,0 +1,43 @@
+{
+  "baseline": {
+    "n": 3,
+    "closure_rate": 1,
+    "first_pass_rate": 1,
+    "reopened_rate": 0,
+    "reask_rate": 0,
+    "turns_mean": 4.333333333333333,
+    "latency_mean": 55.333333333333336,
+    "total_tokens_per_resolved": 21866.666666666668,
+    "prompt_tokens_per_resolved_actual": null,
+    "prompt_tokens_per_resolved_any": 325753,
+    "edits_per_resolved": 1
+  },
+  "plc": {
+    "n": 3,
+    "closure_rate": 1,
+    "first_pass_rate": 1,
+    "reopened_rate": 0,
+    "reask_rate": 0,
+    "turns_mean": 4.333333333333333,
+    "latency_mean": 46,
+    "total_tokens_per_resolved": 27133.333333333332,
+    "prompt_tokens_per_resolved_actual": null,
+    "prompt_tokens_per_resolved_any": 2539.3333333333335,
+    "edits_per_resolved": 1
+  },
+  "delta": {
+    "closure_pp": 0,
+    "reopened_pp": 0,
+    "edits_per_resolved_pct": 0,
+    "total_tokens_per_resolved_pct": -24.085365853658523,
+    "prompt_tokens_per_resolved_actual_pct": null,
+    "prompt_tokens_per_resolved_any_pct": 99.22047277129195
+  },
+  "gates": {
+    "closure": false,
+    "tokens_total": false,
+    "tokens_prompt": true,
+    "reopened": true,
+    "edits": true
+  }
+}
