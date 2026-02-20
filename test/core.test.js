@@ -24,7 +24,10 @@ import {
   makeRunRow,
   computeReport,
   renderReport,
-  compileFromFlags
+  compileFromFlags,
+  isLikelyCodeTask,
+  fileTypeWeight,
+  shouldIncludeFile
 } from '../src/core.js';
 
 function mkTmp() {
@@ -46,9 +49,15 @@ test('listFilesRecursively supports file and directory filtering', () => {
   const md = path.join(dir, 'a.md');
   const txt = path.join(dir, 'b.txt');
   const js = path.join(dir, 'c.js');
+  const json = path.join(dir, 'd.json');
+  const badExt = path.join(dir, 'e.bin');
+  const huge = path.join(dir, 'f.md');
   fs.writeFileSync(md, 'a');
   fs.writeFileSync(txt, 'b');
   fs.writeFileSync(js, 'c');
+  fs.writeFileSync(json, '{}');
+  fs.writeFileSync(badExt, 'nope');
+  fs.writeFileSync(huge, 'x'.repeat(210_000));
   fs.mkdirSync(path.join(dir, '.git'));
   fs.writeFileSync(path.join(dir, '.git', 'x.md'), 'skip');
   fs.mkdirSync(path.join(dir, 'node_modules'));
@@ -58,10 +67,67 @@ test('listFilesRecursively supports file and directory filtering', () => {
 
   assert.deepEqual(listFilesRecursively(md), [md]);
   const files = listFilesRecursively(dir).sort();
-  assert.equal(files.length, 3);
+  assert.equal(files.length, 5);
   assert.ok(files.some((f) => f.endsWith('a.md')));
   assert.ok(files.some((f) => f.endsWith('b.txt')));
+  assert.ok(files.some((f) => f.endsWith('c.js')));
+  assert.ok(files.some((f) => f.endsWith('d.json')));
   assert.ok(files.some((f) => f.endsWith('z.mdc')));
+  assert.ok(!files.some((f) => f.endsWith('e.bin')));
+  assert.ok(!files.some((f) => f.endsWith('f.md')));
+
+  const broken = path.join(dir, 'broken-link');
+  try {
+    fs.symlinkSync(path.join(dir, 'no-file'), broken);
+  } catch {
+    // ignore on fs that doesn't allow symlink in test env
+  }
+  assert.doesNotThrow(() => listFilesRecursively(dir));
+
+  const targetDir = path.join(dir, 'target');
+  fs.mkdirSync(targetDir);
+  const dirLink = path.join(dir, 'dir-link');
+  try {
+    fs.symlinkSync(targetDir, dirLink, 'dir');
+  } catch {
+    // ignore on fs that doesn't allow symlink in test env
+  }
+
+  const fileLink = path.join(dir, 'file-link.md');
+  try {
+    fs.symlinkSync(md, fileLink);
+  } catch {
+    // ignore on fs that doesn't allow symlink in test env
+  }
+
+  const binLink = path.join(dir, 'bin-link.md');
+  try {
+    fs.symlinkSync(badExt, binLink);
+  } catch {
+    // ignore on fs that doesn't allow symlink in test env
+  }
+
+  const badSuffixLink = path.join(dir, 'skip-link.bin');
+  try {
+    fs.symlinkSync(md, badSuffixLink);
+  } catch {
+    // ignore on fs that doesn't allow symlink in test env
+  }
+
+  const filesAfter = listFilesRecursively(dir);
+  assert.ok(!filesAfter.some((f) => f.endsWith('dir-link')));
+  if (fs.existsSync(fileLink)) {
+    assert.ok(filesAfter.some((f) => f.endsWith('file-link.md')));
+  }
+  // symlink extension follows link name, so binLink may be included when suffix is .md
+  if (fs.existsSync(badSuffixLink)) {
+    assert.ok(!filesAfter.some((f) => f.endsWith('skip-link.bin')));
+  }
+
+  assert.equal(shouldIncludeFile(path.join(dir, 'not-exists.md')), false);
+  assert.equal(shouldIncludeFile(dir), false);
+  assert.deepEqual(listFilesRecursively(path.join(dir, 'not-exists')), []);
+  assert.deepEqual(listFilesRecursively(`/definitely/not/exists/${Date.now()}`), []);
 });
 
 test('loadQuery supports raw and @file and required guard', () => {
@@ -98,6 +164,13 @@ test('scoreChunk and compileContext normal path', () => {
   assert.match(compiled, /small_model: haiku/);
   assert.ok(metrics.context_chars_in > 0);
   assert.ok(metrics.prompt_tokens_est_out > 0);
+
+  assert.equal(isLikelyCodeTask('build failed on CI'), true);
+  assert.equal(isLikelyCodeTask('온보딩 문서 작성'), false);
+  assert.ok(fileTypeWeight('a.ts', true) > fileTypeWeight('a.md', true));
+  assert.equal(fileTypeWeight('a.json', true), 1.1);
+  assert.ok(fileTypeWeight('a.md', false) > fileTypeWeight('a.ts', false));
+  assert.equal(fileTypeWeight('a.yaml', false), 1.0);
 });
 
 test('compileContext fallback and conflict warning path', () => {

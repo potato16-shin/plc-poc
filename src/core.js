@@ -2,6 +2,15 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.next', 'dist', 'build', 'coverage', '.turbo', '.cache']);
+const ALLOWED_EXTENSIONS = new Set([
+  '.md', '.mdc', '.txt', '.rst',
+  '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs',
+  '.json', '.yml', '.yaml',
+  '.py', '.go', '.rs', '.java', '.kt', '.swift', '.rb', '.php', '.c', '.cc', '.cpp', '.h'
+]);
+const MAX_FILE_BYTES = 200_000;
+
 export function helpText() {
   return `PLC PoC CLI v0.1.0
 
@@ -11,7 +20,7 @@ Usage:
   plc report [--from .plc/logs/runs.jsonl]
 
 Compile options:
-  --context      Comma-separated file/dir paths (markdown/txt)
+  --context      Comma-separated file/dir paths
   --query        Query text or @path/to/query.txt
   --out          Output markdown path (default: compiled_prompt.md)
   --small-model  Optional label for small-model refinement metadata
@@ -50,19 +59,55 @@ export function parseFlags(argv) {
   return out;
 }
 
+function safeLstat(p) {
+  try {
+    return fs.lstatSync(p);
+  } catch {
+    return null;
+  }
+}
+
+function safeStat(p) {
+  try {
+    return fs.statSync(p);
+  } catch {
+    return null;
+  }
+}
+
+export function shouldIncludeFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(ext)) return false;
+  const st = safeStat(filePath);
+  if (!st || !st.isFile()) return false;
+  if (st.size > MAX_FILE_BYTES) return false;
+  return true;
+}
+
 export function listFilesRecursively(p) {
-  const stat = fs.statSync(p);
-  if (stat.isFile()) return [p];
+  const lst = safeLstat(p);
+  if (!lst) return [];
+
+  if (lst.isSymbolicLink()) {
+    const st = safeStat(p);
+    if (!st) return [];
+    if (st.isDirectory()) {
+      // skip symlinked directories to avoid loops
+      return [];
+    }
+    return shouldIncludeFile(p) ? [p] : [];
+  }
+
+  if (lst.isFile()) return shouldIncludeFile(p) ? [p] : [];
+
+  /* c8 ignore next */
+  if (!lst.isDirectory()) return [];
+
   const acc = [];
   for (const name of fs.readdirSync(p)) {
+    if (SKIP_DIRS.has(name)) continue;
     const child = path.join(p, name);
-    const st = fs.statSync(child);
-    if (st.isDirectory()) {
-      if (name === '.git' || name === 'node_modules') continue;
-      acc.push(...listFilesRecursively(child));
-    } else if (/\.(md|mdc|txt)$/i.test(name)) {
-      acc.push(child);
-    }
+    acc.push(...listFilesRecursively(child));
   }
   return acc;
 }
@@ -135,6 +180,24 @@ export function scoreChunk(chunk, queryTokens) {
   const qset = new Set(queryTokens);
   for (const t of tokens) if (qset.has(t)) overlap++;
   return overlap / Math.sqrt(tokens.length + 1);
+}
+
+export function isLikelyCodeTask(query) {
+  return /(build|compile|lint|type|test|bug|error|fix|refactor|ci|배포|빌드|버그|리팩터|테스트|실패|에러)/i.test(query);
+}
+
+export function fileTypeWeight(filePath, isCodeTask) {
+  const ext = path.extname(filePath).toLowerCase();
+  const docs = new Set(['.md', '.mdc', '.txt', '.rst']);
+  const config = new Set(['.json', '.yml', '.yaml']);
+  if (isCodeTask) {
+    if (docs.has(ext)) return 0.7;
+    if (config.has(ext)) return 1.1;
+    return 1.3;
+  }
+  if (docs.has(ext)) return 1.2;
+  if (config.has(ext)) return 1.0;
+  return 0.8;
 }
 
 export function compileContext(rawContext, query, smallModel) {
@@ -314,14 +377,29 @@ export function compileFromFlags(flags, cwd = process.cwd()) {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const files = [];
+  const allFiles = [];
   for (const p of contextPaths) {
     const abs = path.resolve(cwd, p);
     if (!fs.existsSync(abs)) continue;
-    files.push(...listFilesRecursively(abs));
+    allFiles.push(...listFilesRecursively(abs));
   }
 
-  const rawContext = files
+  const dedupFiles = [...new Set(allFiles)];
+  const codeTask = isLikelyCodeTask(query);
+  const qTokens = tokenize(query);
+
+  const rankedFiles = dedupFiles
+    .map((f) => {
+      const rel = path.relative(cwd, f);
+      const relScore = scoreChunk(rel, qTokens);
+      const weight = fileTypeWeight(f, codeTask);
+      return { f, rel, score: relScore * weight };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const selectedFiles = rankedFiles.slice(0, 120).map((x) => x.f);
+
+  const rawContext = selectedFiles
     .map((f) => `\n\n<!-- source: ${path.relative(cwd, f)} -->\n` + fs.readFileSync(f, 'utf8'))
     .join('\n');
 

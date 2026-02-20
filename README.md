@@ -36,6 +36,8 @@ plc compile \
 - relevance pruning
 - dedup/conflict guard
 - execution scaffold(DONE_WHEN/VALIDATION) 보강
+- 코드/설정 파일까지 컨텍스트 수집 (`.ts/.tsx/.js/.json/.yml` 등)
+- 대형 프로젝트 안전 스캔(`.git`, `node_modules`, `.next` 등 자동 제외, 깨진 symlink 무시)
 
 ## 2) Run 로그 기록
 
