@@ -1,3 +1,4 @@
 node_modules
 .plc/logs/*.jsonl
 compiled_prompt.md
+coverage

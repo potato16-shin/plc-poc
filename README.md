@@ -12,6 +12,17 @@ npm link
 plc --help
 ```
 
+## TDD / 테스트 / 커버리지
+
+```bash
+npm test
+npm run coverage
+```
+
+- 테스트 프레임워크: Node.js built-in test runner (`node --test`)
+- 커버리지: `c8`
+- 기준: `src/` 기준 lines/functions/branches/statements **100%**
+
 ## 1) Compile
 
 ```bash

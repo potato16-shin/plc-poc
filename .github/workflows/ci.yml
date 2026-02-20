@@ -12,7 +12,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: node bin/plc.js --help
+          cache: npm
+      - run: npm ci
+      - run: npm run coverage
       - run: |
           node bin/plc.js compile --context . --query "테스트 쿼리" --out compiled_prompt.md
           test -f compiled_prompt.md
