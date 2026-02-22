@@ -5,3 +5,8 @@ coverage
 out
 benchmark/tasks.jsonl
 benchmark/runs.jsonl
+.env
+.env.*
+*.pem
+*.key
+*.p12
