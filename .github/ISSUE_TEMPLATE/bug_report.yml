@@ -1,0 +1,20 @@
+name: Bug report
+description: 버그 제보
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 요약
+      description: 무엇이 문제인가요?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작

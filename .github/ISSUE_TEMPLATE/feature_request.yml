@@ -1,0 +1,15 @@
+name: Feature request
+description: 기능 제안
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 문제/배경
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 제안 내용
+    validations:
+      required: true
